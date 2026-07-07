@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flight Tracker | Aero</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <link rel="stylesheet" href="style.css?v=2.1" />
+</head>
+
+<body>
+  <!-- Map Background -->
+  <div id="map"></div>
+
+  <!-- Bento Box Search Panel -->
+  <div id="search-container" class="glass-panel">
+    <!-- Theme Toggle -->
+    <button id="theme-toggle" aria-label="Toggle Theme">
+      <span id="theme-icon">☀️</span>
+    </button>
+
+    <div class="search-mode-toggle">
+      <label><input type="radio" name="searchMode" value="flight" checked />
+        Flight No</label>
+      <label><input type="radio" name="searchMode" value="route" /> Route</label>
+      <label><input type="radio" name="searchMode" value="explore" /> Explore</label>
+    </div>
+
+    <div id="input-group-flight" class="input-group">
+      <input type="text" id="search-input" placeholder="Search Flight (e.g. UAE123)" />
+    </div>
+
+    <div id="input-group-route" class="input-group hidden">
+      <input type="text" id="search-from" placeholder="From (e.g. LHR)" />
+      <button id="swap-route-btn" aria-label="Swap Origin and Destination" title="Swap locations">⇄</button>
+      <input type="text" id="search-to" placeholder="To (e.g. JFK)" />
+    </div>
+
+    <div id="input-group-explore" class="input-group hidden">
+      <input type="text" id="search-explore" placeholder="Departing From (e.g. India)" />
+    </div>
+
+    <button id="search-btn">Track Flight</button>
+  </div>
+
+  <!-- Credits Footnote -->
+  <div id="credits-display">
+    Credits: <span id="credits-count">Loading...</span>
+  </div>
+
+  <!-- Error Modal -->
+  <div id="error-modal" class="modal-overlay hidden">
+    <div class="modal-content glass-panel">
+      <h3 id="modal-title">Notice</h3>
+      <p id="modal-message">Message goes here.</p>
+      <button id="modal-close-btn">OK</button>
+    </div>
+  </div>
+
+  <!-- Slide-up Flight Detail Card -->
+  <div id="flight-info" class="glass-panel">
+    <h3>
+      <span id="info-callsign">FLIGHT</span>
+    </h3>
+
+    <!-- Progress Bar -->
+    <div id="progress-container" class="progress-wrapper">
+      <div class="progress-track"></div>
+      <div class="progress-fill" id="flight-progress-fill"></div>
+      <div class="progress-plane" id="flight-progress-plane">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+          <path
+            d="M21,16V14L13,9V3.5A1.5,1.5 0 0,0 11.5,2A1.5,1.5 0 0,0 10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,20.5V22L13,19V13.5L21,16Z" />
+        </svg>
+      </div>
+    </div>
+
+    <div class="route-display">
+      <div style="text-align: left; width: 45%;">
+        <div id="info-origin-city" class="stat-label">Origin</div>
+        <div id="info-origin-airport" class="airport-name-display">---</div>
+      </div>
+      <div class="route-arrow">✈</div>
+      <div style="text-align: right; width: 45%;">
+        <div id="info-dest-city" class="stat-label">Destination</div>
+        <div id="info-dest-airport" class="airport-name-display">---</div>
+      </div>
+    </div>
+
+    <div class="flight-stats-grid">
+      <div class="stat-item">
+        <span class="stat-label">Altitude</span>
+        <span class="stat-value"><span id="info-alt">-</span> ft</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Speed</span>
+        <span class="stat-value"><span id="info-speed">-</span> kts</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Country</span>
+        <span class="stat-value" id="info-country">-</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Source</span>
+        <span class="stat-value" id="info-source">-</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <script src="app.js?v=7.0"></script>
+</body>
+
+</html>
