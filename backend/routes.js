@@ -1,9 +1,12 @@
 const express = require('express');
 const axios = require('axios');
-const { pool } = require('../config/database');
 const { getToken } = require('./auth');
 const fs = require('fs');
 const path = require('path');
+
+// In-Memory API Credits Tracking
+let openSkyCredits = 'N/A';
+let airLabsCredits = 'N/A';
 
 // Load Airports Data
 // Load Airports Data
@@ -108,7 +111,7 @@ const getOpenSkyData = async (url, params = {}) => {
         if (response.headers['x-rate-limit-remaining']) {
             const credits = parseInt(response.headers['x-rate-limit-remaining'], 10);
             console.log(`[Credits] OpenSky Remaining: ${credits}`);
-            pool.query('INSERT INTO api_usage (credits_left) VALUES (?)', [credits]).catch(console.error);
+            openSkyCredits = credits;
         }
 
         return response.data;
@@ -126,7 +129,7 @@ const getOpenSkyData = async (url, params = {}) => {
                 if (retryResponse.headers['x-rate-limit-remaining']) {
                     const credits = parseInt(retryResponse.headers['x-rate-limit-remaining'], 10);
                     console.log(`[Credits] OpenSky Anonymous Remaining: ${credits}`);
-                    pool.query('INSERT INTO api_usage (credits_left) VALUES (?)', [credits]).catch(console.error);
+                    openSkyCredits = credits;
                 }
 
                 return retryResponse.data;
@@ -139,7 +142,7 @@ const getOpenSkyData = async (url, params = {}) => {
         // Capture Credits even on error (if available)
         if (error.response && error.response.headers && error.response.headers['x-rate-limit-remaining']) {
             const credits = parseInt(error.response.headers['x-rate-limit-remaining'], 10);
-            pool.query('INSERT INTO api_usage (credits_left) VALUES (?)', [credits]).catch(console.error);
+            openSkyCredits = credits;
         }
 
         console.error(`Error fetching from OpenSky (${url}):`, error.response ? error.response.data : error.message);
@@ -187,36 +190,18 @@ const getAirLabsData = async (query) => {
         if (response.data && response.data.response && response.data.response.length > 0) {
             // AirLabs is NOT sending x-ratelimit-remaining headers (confirmed via logs).
             // We must track this internally.
-
-            // 1. Get current internal count
-            const [rows] = await pool.query('SELECT credits_remaining FROM airlabs_usage ORDER BY id DESC LIMIT 1');
-            let currentCredits = rows.length > 0 ? rows[0].credits_remaining : 1000; // Default start
-
-            // 2. Decrement
-            const newCredits = Math.max(0, currentCredits - 1); // Prevent negative
-
-            // 3. Log new state
-            pool.query('INSERT INTO airlabs_usage (requests_made, credits_remaining) VALUES (1, ?)',
-                [newCredits]
-            ).catch(console.error);
+            if (typeof airLabsCredits === 'number') {
+                airLabsCredits = Math.max(0, airLabsCredits - 1);
+            }
 
             return response.data.response[0];
         }
         return null;
-        return null;
     } catch (error) {
         // Even on error, if it was a valid request type (search), it might cost a credit.
         // For safety, let's decrement.
-        try {
-            const [rows] = await pool.query('SELECT credits_remaining FROM airlabs_usage ORDER BY id DESC LIMIT 1');
-            let currentCredits = rows.length > 0 ? rows[0].credits_remaining : 1000;
-            const newCredits = Math.max(0, currentCredits - 1);
-
-            pool.query('INSERT INTO airlabs_usage (requests_made, credits_remaining) VALUES (1, ?)',
-                [newCredits]
-            ).catch(console.error);
-        } catch (dbErr) {
-            console.error('Failed to log AirLabs error usage:', dbErr);
+        if (typeof airLabsCredits === 'number') {
+            airLabsCredits = Math.max(0, airLabsCredits - 1);
         }
 
         console.error('AirLabs Error:', error.message);
@@ -226,25 +211,10 @@ const getAirLabsData = async (query) => {
 
 // GET /api/credits - Get latest credit balance
 router.get('/credits', async (req, res) => {
-    try {
-        // OpenSky has multiple rate limit buckets (e.g., states vs tracks vs flights).
-        // Since we log them sequentially, "LIMIT 1" fluctuates wildly between buckets.
-        // We take the MINIMUM of the last 10 entries to show the "Bottleneck" limit.
-        const [openSkyRows] = await pool.query('SELECT credits_left FROM api_usage ORDER BY id DESC LIMIT 1');
-
-        const [airLabsRows] = await pool.query('SELECT credits_remaining FROM airlabs_usage ORDER BY id DESC LIMIT 1');
-
-        const openSkyCredits = openSkyRows.length > 0 && openSkyRows[0].credits_left !== null ? openSkyRows[0].credits_left : 'N/A';
-        const airLabsCredits = airLabsRows.length > 0 ? airLabsRows[0].credits_remaining : 'N/A';
-
-        res.json({
-            credits: openSkyCredits,
-            airlabs_credits: airLabsCredits
-        });
-    } catch (error) {
-        console.error('Error fetching credits:', error);
-        res.status(500).json({ error: 'DB Error' });
-    }
+    res.json({
+        credits: openSkyCredits,
+        airlabs_credits: airLabsCredits
+    });
 });
 
 // GET /api/search - Search for specific flight by ICAO
@@ -443,11 +413,9 @@ router.get('/flights-by-route', async (req, res) => {
         });
 
         // Track AirLabs Usage (+1)
-        try {
-            const [rows] = await pool.query('SELECT credits_remaining FROM airlabs_usage ORDER BY id DESC LIMIT 1');
-            let current = rows.length > 0 ? rows[0].credits_remaining : 1000;
-            pool.query('INSERT INTO airlabs_usage (requests_made, credits_remaining) VALUES (1, ?)', [Math.max(0, current - 1)]).catch(console.error);
-        } catch (e) { }
+        if (typeof airLabsCredits === 'number') {
+            airLabsCredits = Math.max(0, airLabsCredits - 1);
+        }
 
         candidates = alRes.data.response || [];
         console.log(`[Discovery] AirLabs found ${candidates.length} candidates.`);
@@ -771,18 +739,6 @@ const syncAirLabsCredits = async () => {
         const res = await fetchWithRetry(`https://airlabs.co/api/v9/ping?api_key=${process.env.AIRLABS_API_KEY}`, { timeout: 20000 });
 
         if (res.data && res.data.request && res.data.request.key) {
-            const realCredits = res.data.request.key.limits_total; // Or query_limit / remaining depending on plan
-            // Note: AirLabs 'limits_total' is usually the monthly quota? 
-            // Better to use 'limits_remaining' if available, or just 'key.remaining' from some endpoints.
-            // Let's rely on what we saw in logs: 'res.data.key.limits_total' was used before.
-            // Actually, best field is usually 'key.remaining' or calculating 'limit - usage'.
-            // Let's dump the response to be sure in dev, but for now we trust previous logic
-            // or better, just insert what we get.
-
-            // Re-verified with user image: They have 1000 queries available.
-            // ping response usually has 'key': { ... 'limits_total': 1000, 'limits_used': 0 ... }
-
-            // Let's try to get precise remaining
             const k = res.data.request.key;
             const total = k.limits_total || 0;
             const used = k.limits_used || 0;
@@ -790,7 +746,7 @@ const syncAirLabsCredits = async () => {
 
             console.log(`[System] AirLabs Sync: Total ${total}, Used ${used}, Remaining ${remaining}`);
 
-            await pool.query('INSERT INTO airlabs_usage (requests_made, credits_remaining) VALUES (?, ?)', [used, remaining]);
+            airLabsCredits = remaining;
         }
     } catch (e) {
         console.warn(`[System] Credit sync failed: ${e.message}`);

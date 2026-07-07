@@ -7,7 +7,6 @@ const express = require('express');
 const cors = require('cors');
 // const path = require('path'); // Already required
 // const dotenv = require('dotenv'); // Already required
-const { initDB } = require('../config/database');
 const flightRoutes = require('./routes');
 
 
@@ -24,8 +23,6 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 // API Routes
 app.use('/api', flightRoutes);
 
-// Database Initialization
-initDB();
 
 // Start Server
 app.listen(PORT, () => {
