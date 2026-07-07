@@ -757,74 +757,8 @@ router.get('/search', async (req, res) => {
     }
 });
 
-// GET /api/tracks/:icao24 - Get flight path (live + history)
-router.get('/tracks/:icao24', async (req, res) => {
-    const { icao24 } = req.params;
-    try {
-        // 1. Fetch live track from OpenSky (time=0 means live)
-        let openSkyTrack = [];
-        try {
-            const trackData = await getOpenSkyData('https://opensky-network.org/api/tracks/all', {
-                icao24,
-                time: 0
-            });
-            if (trackData && trackData.path) {
-                openSkyTrack = trackData.path.map(p => ({
-                    time: p[0],
-                    latitude: p[1],
-                    longitude: p[2],
-                    true_track: p[4]
-                }));
-            }
-        } catch (e) {
-            // It's possible there's no live track, or error. 
-            // We continue to check DB.
-            console.log(`No live track for ${icao24} or API limits reached.`);
-        }
 
-        // 2. Save new points to DB (deduplicate logic in real app, here simple insert)
-        // Ideally we check if timestamp exists.
-        if (openSkyTrack.length > 0) {
-            const connection = await pool.getConnection();
-            try {
-                // Bulk insert/ignore to avoid duplicates if possible, or just insert new ones
-                // Simple approach: Insert ignore
-                // Construct values
-                // Careful with SQL injection, but values are trusted from API/numbers. 
-                // Using prepared statement logic for bulk is tricky with mysql2 basic.
-                // Loop for simplicity or bulk insert.
-                const values = openSkyTrack.map(p => [icao24, p.latitude, p.longitude, p.true_track, p.time]);
-                // Need to use placeholder for bulk
-                await connection.query(
-                    'INSERT IGNORE INTO flight_paths (icao24, latitude, longitude, true_track, timestamp) VALUES ?',
-                    [values]
-                );
-            } finally {
-                connection.release();
-            }
-        }
 
-        // 3. Retrieve full history from DB
-        const [rows] = await pool.query(
-            'SELECT latitude, longitude, true_track FROM flight_paths WHERE icao24 = ? ORDER BY timestamp ASC',
-            [icao24]
-        );
-
-        // Map to format
-        const responsePath = rows.map(r => [r.latitude, r.longitude]);
-
-        // If DB is empty but we just fetched OpenSky, use that (though we just inserted it).
-        // If DB has data, it includes what we just inserted.
-
-        // If we failed to get OpenSky, rows has usage history.
-
-        res.json({ icao24, path: responsePath });
-
-    } catch (error) {
-        console.error('Track error:', error);
-        res.status(500).json({ error: 'Failed to fetch track data' });
-    }
-});
 
 // --- CREDIT SYNCHRONIZATION ---
 // Runs asynchronously on startup to ensure displayed credits match dashboard

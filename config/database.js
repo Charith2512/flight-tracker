@@ -11,22 +11,7 @@ const pool = mysql.createPool({
 
 const initDB = async () => {
   try {
-    // Create Flight Paths Table
-    const createTableQuery = `
-            CREATE TABLE IF NOT EXISTS flight_paths (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                icao24 VARCHAR(24) NOT NULL,
-                latitude FLOAT NOT NULL,
-                longitude FLOAT NOT NULL,
-                true_track FLOAT,
-                timestamp BIGINT NOT NULL,
-                INDEX idx_icao24 (icao24),
-                INDEX idx_timestamp (timestamp)
-            );
-        `;
-    // We need a connection to create table, usually pool.query works
     const connection = await pool.getConnection();
-    await connection.query(createTableQuery);
 
     // Create api_usage table
     await connection.query(`

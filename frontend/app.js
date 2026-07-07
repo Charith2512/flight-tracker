@@ -5,7 +5,6 @@ const API_BASE = 'http://localhost:8080'; // Absolute URL for stability
 // State
 let selectedFlight = null;
 let flightMarker = null;
-let flightPathPolyline = null;
 let activeMarkers = [];
 
 // SVG Plane Icon (Neon Style)
@@ -350,15 +349,6 @@ function renderFlight(flight) {
         animate: true,
         duration: 1.5
     });
-
-    // 5. Fetch and render track history
-    if (flightPathPolyline) {
-        map.removeLayer(flightPathPolyline);
-        flightPathPolyline = null;
-    }
-    if (flight.icao24) {
-        fetchTrack(flight.icao24);
-    }
 }
 
 function renderMultipleFlights(flights) {
@@ -386,23 +376,6 @@ function renderMultipleFlights(flights) {
     els.infoPanel.classList.remove('active'); // Hide panel until specific selection
 }
 
-
-
-// Fetch Track
-async function fetchTrack(icao24) {
-    try {
-        const response = await fetch(`${API_BASE}/api/tracks/${icao24}`);
-        const data = await response.json();
-        if (data.path && data.path.length > 0) {
-            flightPathPolyline = L.polyline(data.path, {
-                color: '#fbbf24', // Match Neon Accent
-                weight: 2,
-                opacity: 0.6,
-                dashArray: '4, 8' // Dashed line for "Aero" look
-            }).addTo(map);
-        }
-    } catch (e) { console.error(e); }
-}
 
 function setupThemeLogic() {
     const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -435,11 +408,9 @@ function setTheme(theme) {
 // Utilities
 function clearMap() {
     if (flightMarker) map.removeLayer(flightMarker);
-    if (flightPathPolyline) map.removeLayer(flightPathPolyline);
     activeMarkers.forEach(m => map.removeLayer(m));
     activeMarkers = [];
     flightMarker = null;
-    flightPathPolyline = null;
 }
 
 function setLoading(isLoading) {

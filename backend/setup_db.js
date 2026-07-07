@@ -14,19 +14,6 @@ async function setupDatabase() {
         await connection.query(`CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME}\`;`);
         console.log(`Database '${process.env.DB_NAME}' created or already exists.`);
         
-        // Create flight_paths table
-        await connection.query(`
-            CREATE TABLE IF NOT EXISTS flight_paths (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                icao24 VARCHAR(10) NOT NULL,
-                latitude DOUBLE NOT NULL,
-                longitude DOUBLE NOT NULL,
-                true_track DOUBLE,
-                timestamp INT NOT NULL,
-                UNIQUE KEY unique_point (icao24, timestamp)
-            )
-        `);
-
         // Create api_usage table
         await connection.query(`
             CREATE TABLE IF NOT EXISTS api_usage (
