@@ -1,6 +1,6 @@
 // Map Setup
 let map;
-const API_BASE = 'http://localhost:8080'; // Absolute URL for stability
+const API_BASE = window.location.origin; // Dynamically resolve base URL in prod/dev
 
 // State
 let selectedFlight = null;
